@@ -168,6 +168,10 @@ function cleanText(value) {
   return (value || "").replace(/\s+/g, " ").trim();
 }
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -389,18 +393,24 @@ function extractFootnotes(doc) {
   const notes = {};
 
   doc.querySelectorAll('div[id^="sdfootnote"]').forEach((div) => {
-    const firstLink = div.querySelector('a[name*="sym"], a.sdfootnotesym, a[href*="anc"]');
-    const number = cleanText(firstLink?.textContent) || div.id.replace(/\D+/g, "");
+    const backlink = div.querySelector('a[href*="anc"]');
+    const numberLink = backlink || div.querySelector("a.sdfootnotesym");
+    const number = cleanText(numberLink?.textContent) || div.id.replace(/\D+/g, "");
     const paragraphs = Array.from(div.querySelectorAll("p")).map((paragraph, index) => {
       const clone = paragraph.cloneNode(true);
       clone.querySelectorAll("script, style").forEach((node) => node.remove());
 
       if (index === 0) {
-        const leadingLink = clone.querySelector('a[name*="sym"], a.sdfootnotesym, a[href*="anc"]');
-        leadingLink?.remove();
+        clone.querySelectorAll('a[name*="sym"], a.sdfootnotesym, a[href*="anc"]').forEach((link) => {
+          const label = cleanText(link.textContent);
+          if (!label || label === number || /anc/i.test(link.getAttribute("href") || "")) {
+            link.remove();
+          }
+        });
       }
 
-      return cleanText(clone.textContent);
+      const text = cleanText(clone.textContent);
+      return cleanText(text.replace(new RegExp(`^${escapeRegExp(number)}\\s*`), ""));
     }).filter(Boolean);
 
     if (paragraphs.length) {
@@ -648,9 +658,14 @@ function renderSurah(data, tab) {
   setTabs(tab);
   els.surahKicker.textContent = `Surah ${data.id}`;
   els.surahTitle.textContent = data.title;
-  const arabicCount = data.readingItems.filter((item) => item.type === "arabic").length;
-  const translationCount = data.readingItems.filter((item) => item.type === "translation").length;
-  els.surahSummary.textContent = `${data.introHtml.length} introduction blocks, ${arabicCount} Arabic text groups, ${translationCount} translation passages, ${Object.keys(data.footnotes).length} notes.`;
+  const meaning = splitTitle(data.sourceTitle).meaning;
+  const verseCount = state.quranText?.chapters?.[String(data.id)]?.length;
+  const metaItems = [
+    meaning,
+    verseCount ? `${verseCount} ayahs` : "",
+    `${Object.keys(data.footnotes).length} notes`,
+  ].filter(Boolean);
+  els.surahSummary.innerHTML = metaItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("");
   els.historyPanel.innerHTML = data.introHtml.length
     ? data.introHtml.join("")
     : `<p class="reader-message">No separate history section was found in this legacy page.</p>`;
@@ -699,6 +714,7 @@ function openFootnote(noteId) {
   } else {
     els.noteDialog.setAttribute("open", "");
   }
+  els.closeNote.focus({ preventScroll: true });
 }
 
 function closeFootnote() {

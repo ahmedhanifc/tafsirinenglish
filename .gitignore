@@ -1,7 +1,5 @@
-scripts/
-implementation_iteration/
-skills/
-
+.DS_Store
+Thumbs.db
 **/.DS_Store
 **/Thumbs.db
 
@@ -9,3 +7,6 @@ Quran/*.jpg
 Quran/**/*.jpg
 Quran/*.gif
 Quran/**/*.gif
+
+implementation_iteration/
+skills/

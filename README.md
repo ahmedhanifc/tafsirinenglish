@@ -28,7 +28,7 @@ After deployment, open `https://<project>.vercel.app/#/surah/1?tab=read`.
 
 ## Direction
 
-Start with a responsive web app or PWA, not a native iOS app. The current source is static HTML plus image assets, and the first product risk is content extraction, footnote behavior, and mobile reading ergonomics. A web app lets those decisions be tested quickly while keeping the door open for a later iOS shell if offline storage, native sharing, or app-store distribution becomes important.
+Start with a responsive web app or PWA, not a native iOS app. The current source is static HTML pages, app assets, and bundled Quran text JSON, and the first product risk is content extraction, footnote behavior, and mobile reading ergonomics. A web app lets those decisions be tested quickly while keeping the door open for a later iOS shell if offline storage, native sharing, or app-store distribution becomes important.
 
 ## Current slice
 
