@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tafhim al-Qur'an Reader</title>
+  <meta name="description" content="A mobile-first reader for Tafhim al-Qur'an with separated surah history and inline footnotes.">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="brand-button" type="button" data-home>
+      <span class="brand-mark" aria-hidden="true">TQ</span>
+      <span>
+        <span class="brand-title">Tafhim al-Qur'an</span>
+        <span class="brand-subtitle">The Meaning of the Qur'an</span>
+      </span>
+    </button>
+    <div class="topbar-actions">
+      <button class="text-button" type="button" data-home>Surahs</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <section class="home-view" id="homeView">
+      <div class="home-intro">
+        <p class="eyebrow">Sayyid Abul Ala Maududi</p>
+        <h1>Tafhim al-Qur'an</h1>
+        <p class="lede">Surah introductions, Arabic text images, translation, and commentary notes in a quiet reading layout.</p>
+      </div>
+
+      <div class="library-panel">
+        <label class="search-field">
+          <span>Search surahs</span>
+          <input id="surahSearch" type="search" autocomplete="off" placeholder="Name, number, or meaning">
+        </label>
+        <div class="library-meta">
+          <span id="surahCount">114 surahs</span>
+          <span>114 source pages</span>
+        </div>
+        <div class="surah-list" id="surahList"></div>
+      </div>
+    </section>
+
+    <section class="reader-view" id="readerView" hidden>
+      <div class="reader-shell">
+        <nav class="reader-nav" aria-label="Surah navigation">
+          <button class="icon-text-button" type="button" id="prevSurah">Previous</button>
+          <button class="icon-text-button" type="button" data-home>All surahs</button>
+          <button class="icon-text-button" type="button" id="nextSurah">Next</button>
+        </nav>
+
+        <article class="surah-heading">
+          <p class="eyebrow" id="surahKicker">Surah</p>
+          <h1 id="surahTitle"></h1>
+          <p id="surahSummary"></p>
+        </article>
+
+        <div class="segment-tabs" role="tablist" aria-label="Reader sections">
+          <button type="button" role="tab" data-tab="history" id="historyTab">History</button>
+          <button type="button" role="tab" data-tab="read" id="readTab">Reading</button>
+        </div>
+
+        <section class="history-panel" id="historyPanel" aria-labelledby="historyTab"></section>
+        <section class="read-panel" id="readPanel" aria-labelledby="readTab"></section>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="note-dialog" id="noteDialog">
+    <div class="note-card">
+      <div class="note-header">
+        <p class="eyebrow" id="noteKicker">Footnote</p>
+        <button class="close-button" type="button" id="closeNote" aria-label="Close footnote">Close</button>
+      </div>
+      <h2 id="noteTitle"></h2>
+      <div class="note-body" id="noteBody"></div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="statusToast" role="status" aria-live="polite"></div>
+  <script src="assets/app.js" defer></script>
+</body>
+</html>

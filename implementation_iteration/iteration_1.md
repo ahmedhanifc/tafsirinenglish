@@ -1,0 +1,5 @@
+Hello, I found this existing website, it's older, but has really good information and is easy to read. The translation also has footnotes, but they are all stacked at the end, making it hard to read. The vision I have in my head is making the site easy to read on mobile (Mobile first application). I know making a web app will be easier, but should I consider ios app.
+
+The structure goes as such. Each surah starts off with history. I think that can be separated into its own section. As in all the history of all the ayats. Then, the surah starts from Bismillah. After that it's images of Quran Ayat's along with its translation. here in the translation there are footnotes, which I want like clickable and it opens a modal so you can read then and there. 
+
+What do you think? Let us plan this out.
