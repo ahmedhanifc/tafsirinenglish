@@ -77,12 +77,12 @@
         <section class="history-panel" id="historyPanel" aria-labelledby="historyTab"></section>
         <section class="read-panel" id="readPanel" aria-labelledby="readTab"></section>
 
-        <section class="ayah-slider-dock" id="ayahSliderDock" aria-label="Jump to ayah" hidden>
-          <div class="ayah-slider-meta">
-            <span id="ayahSliderValue">Ayah 1</span>
-            <span id="ayahSliderMax">1 ayah</span>
-          </div>
-          <input id="ayahSlider" type="range" min="1" max="1" value="1" step="1" aria-label="Jump to ayah">
+        <section class="ayah-jump-dock" id="ayahJumpDock" aria-label="Jump to ayah" hidden>
+          <form class="ayah-jump-form" id="ayahJumpForm">
+            <input id="ayahJumpInput" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Ayah number" title="Type an ayah number and press Enter">
+            <span class="ayah-jump-divider" aria-hidden="true">/</span>
+            <span id="ayahJumpMax">1</span>
+          </form>
         </section>
       </div>
     </section>

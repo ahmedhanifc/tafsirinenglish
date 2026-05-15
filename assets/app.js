@@ -134,10 +134,10 @@ const els = {
   readPanel: document.querySelector("#readPanel"),
   historyTab: document.querySelector("#historyTab"),
   readTab: document.querySelector("#readTab"),
-  ayahSliderDock: document.querySelector("#ayahSliderDock"),
-  ayahSlider: document.querySelector("#ayahSlider"),
-  ayahSliderValue: document.querySelector("#ayahSliderValue"),
-  ayahSliderMax: document.querySelector("#ayahSliderMax"),
+  ayahJumpDock: document.querySelector("#ayahJumpDock"),
+  ayahJumpForm: document.querySelector("#ayahJumpForm"),
+  ayahJumpInput: document.querySelector("#ayahJumpInput"),
+  ayahJumpMax: document.querySelector("#ayahJumpMax"),
   prevSurah: document.querySelector("#prevSurah"),
   nextSurah: document.querySelector("#nextSurah"),
   noteDialog: document.querySelector("#noteDialog"),
@@ -158,9 +158,8 @@ const state = {
   toastTimer: null,
   checkpoint: null,
   checkpointSaveTimer: null,
-  ayahSliderSyncFrame: null,
-  ayahSliderInputActive: false,
-  ayahSliderReleaseTimer: null,
+  ayahJumpSyncFrame: null,
+  ayahJumpEditing: false,
   restoreCheckpointOnNextRender: false,
   hasRouted: false,
 };
@@ -350,29 +349,38 @@ function getCurrentVerseCount() {
   return state.quranText?.chapters?.[String(surahId)]?.length || 0;
 }
 
-function formatAyahCount(count) {
-  return count === 1 ? "1 ayah" : `${count} ayahs`;
+function cleanAyahJumpInput() {
+  if (!els.ayahJumpInput) {
+    return "";
+  }
+
+  const clean = els.ayahJumpInput.value.replace(/[^\d]/g, "");
+  if (clean !== els.ayahJumpInput.value) {
+    els.ayahJumpInput.value = clean;
+  }
+
+  return clean;
 }
 
-function getSliderAyahValue() {
-  const max = Number(els.ayahSlider?.max) || getCurrentVerseCount() || 1;
-  const value = Number(els.ayahSlider?.value);
+function getAyahJumpValue() {
+  const max = Number(els.ayahJumpInput?.max) || getCurrentVerseCount() || 1;
+  const value = Number.parseInt(els.ayahJumpInput?.value, 10);
   if (!Number.isInteger(value)) {
-    return 1;
+    return null;
   }
 
   return Math.min(Math.max(value, 1), max);
 }
 
-function updateAyahSliderValue(ayah) {
-  if (!els.ayahSlider || !els.ayahSliderValue) {
+function updateAyahJumpValue(ayah) {
+  if (!els.ayahJumpInput) {
     return;
   }
 
-  const max = Number(els.ayahSlider.max) || getCurrentVerseCount() || 1;
+  const max = Number(els.ayahJumpInput.max) || getCurrentVerseCount() || 1;
   const value = Math.min(Math.max(Number(ayah) || 1, 1), max);
-  els.ayahSlider.value = String(value);
-  els.ayahSliderValue.textContent = `Ayah ${value}`;
+  els.ayahJumpInput.value = String(value);
+  els.ayahJumpInput.setAttribute("aria-label", `Ayah number, current ${value} of ${max}`);
 }
 
 function findReadingCardForAyah(ayah) {
@@ -407,8 +415,8 @@ function findReadingCardForAyah(ayah) {
   return nearestPrevious;
 }
 
-function updateAyahSliderVisibility() {
-  if (!els.ayahSliderDock) {
+function updateAyahJumpVisibility() {
+  if (!els.ayahJumpDock) {
     return;
   }
 
@@ -419,61 +427,68 @@ function updateAyahSliderVisibility() {
       && els.readPanel.querySelector("[data-checkpoint-item]")
   );
 
-  els.ayahSliderDock.hidden = !shouldShow;
-  document.body.classList.toggle("has-ayah-slider", shouldShow);
+  els.ayahJumpDock.hidden = !shouldShow;
+  document.body.classList.toggle("has-ayah-jump", shouldShow);
+  if (!shouldShow) {
+    state.ayahJumpEditing = false;
+  }
 }
 
-function configureAyahSlider() {
-  if (!els.ayahSlider || !els.ayahSliderMax) {
+function configureAyahJump() {
+  if (!els.ayahJumpInput || !els.ayahJumpMax) {
     return;
   }
 
   const verseCount = getCurrentVerseCount();
-  els.ayahSlider.min = "1";
-  els.ayahSlider.max = String(Math.max(verseCount, 1));
-  els.ayahSlider.step = "1";
-  els.ayahSliderMax.textContent = formatAyahCount(verseCount || 1);
+  const max = Math.max(verseCount, 1);
+  els.ayahJumpInput.min = "1";
+  els.ayahJumpInput.max = String(max);
+  els.ayahJumpInput.placeholder = "1";
+  els.ayahJumpMax.textContent = String(max);
 
   const checkpoint = state.checkpoint || readStoredCheckpoint();
   const checkpointAyah = checkpoint?.surahId === state.currentSurah?.id ? checkpoint.ayahStart : null;
-  updateAyahSliderValue(checkpointAyah || 1);
-  updateAyahSliderVisibility();
+  updateAyahJumpValue(checkpointAyah || 1);
+  updateAyahJumpVisibility();
 }
 
-function syncAyahSliderFromViewport() {
-  state.ayahSliderSyncFrame = null;
-  if (state.ayahSliderInputActive || els.ayahSliderDock?.hidden) {
+function syncAyahJumpFromViewport() {
+  state.ayahJumpSyncFrame = null;
+  if (state.ayahJumpEditing || els.ayahJumpDock?.hidden) {
     return;
   }
 
   const card = getActiveReadingCard();
   const ayah = Number(card?.dataset.ayahStart);
   if (Number.isInteger(ayah) && ayah > 0) {
-    updateAyahSliderValue(ayah);
+    updateAyahJumpValue(ayah);
   }
 }
 
-function scheduleAyahSliderSync() {
-  if (state.ayahSliderSyncFrame || state.ayahSliderInputActive || els.ayahSliderDock?.hidden) {
+function scheduleAyahJumpSync() {
+  if (state.ayahJumpSyncFrame || state.ayahJumpEditing || els.ayahJumpDock?.hidden) {
     return;
   }
 
-  state.ayahSliderSyncFrame = window.requestAnimationFrame(syncAyahSliderFromViewport);
+  state.ayahJumpSyncFrame = window.requestAnimationFrame(syncAyahJumpFromViewport);
 }
 
-function lockAyahSliderSync() {
-  state.ayahSliderInputActive = true;
-  clearTimeout(state.ayahSliderReleaseTimer);
-  state.ayahSliderReleaseTimer = window.setTimeout(() => {
-    state.ayahSliderInputActive = false;
-    scheduleAyahSliderSync();
-  }, 500);
-}
+function commitAyahJump(behavior = "smooth") {
+  if (!els.ayahJumpInput || els.ayahJumpDock?.hidden) {
+    return;
+  }
 
-function releaseAyahSliderSync() {
-  clearTimeout(state.ayahSliderReleaseTimer);
-  state.ayahSliderReleaseTimer = null;
-  state.ayahSliderInputActive = false;
+  cleanAyahJumpInput();
+  const ayah = getAyahJumpValue();
+  state.ayahJumpEditing = false;
+  if (!ayah) {
+    syncAyahJumpFromViewport();
+    return;
+  }
+
+  updateAyahJumpValue(ayah);
+  jumpToAyah(ayah, behavior);
+  saveReadingCheckpointForAyah(ayah);
 }
 
 function jumpToAyah(ayah, behavior = "smooth") {
@@ -520,7 +535,7 @@ function saveReadingCheckpointFromViewport() {
     || state.currentTab !== "read"
     || els.readerView.hidden
     || els.readPanel.hidden
-    || state.ayahSliderInputActive
+    || state.ayahJumpEditing
   ) {
     return null;
   }
@@ -571,7 +586,7 @@ function restoreCheckpointPosition(checkpoint) {
 
     window.setTimeout(() => {
       saveReadingCheckpointFromViewport();
-      syncAyahSliderFromViewport();
+      syncAyahJumpFromViewport();
     }, 0);
   });
 }
@@ -650,7 +665,7 @@ async function route() {
     els.homeView.hidden = false;
     els.readerView.hidden = true;
     document.title = "Tafsir Reader";
-    updateAyahSliderVisibility();
+    updateAyahJumpVisibility();
     renderContinueCheckpoint();
     return;
   }
@@ -1055,7 +1070,7 @@ function renderSurah(data, tab) {
   els.readPanel.innerHTML = data.readingItems.length
     ? data.readingItems.map((item) => item.html).join("")
     : `<p class="reader-message">No reading content was found in this legacy page.</p>`;
-  configureAyahSlider();
+  configureAyahJump();
   updateVisiblePanel(tab);
   updateNavButtons(data.id);
 
@@ -1072,7 +1087,7 @@ function renderSurah(data, tab) {
     if (tab === "read") {
       window.requestAnimationFrame(() => {
         saveReadingCheckpointFromViewport();
-        syncAyahSliderFromViewport();
+        syncAyahJumpFromViewport();
       });
     }
   }
@@ -1090,7 +1105,7 @@ function setTabs(tab) {
 function updateVisiblePanel(tab) {
   els.historyPanel.hidden = tab !== "history";
   els.readPanel.hidden = tab !== "read";
-  updateAyahSliderVisibility();
+  updateAyahJumpVisibility();
 }
 
 function updateNavButtons(id) {
@@ -1167,7 +1182,9 @@ function bindEvents() {
     const noteButton = event.target.closest("[data-note-id]");
     if (noteButton) {
       openFootnote(noteButton.dataset.noteId);
+      return;
     }
+
   });
 
   els.search.addEventListener("input", renderSurahList);
@@ -1181,18 +1198,21 @@ function bindEvents() {
       goToSurah(state.currentSurah.id + 1, state.currentTab);
     }
   });
-  els.ayahSlider.addEventListener("input", () => {
-    const ayah = getSliderAyahValue();
-    lockAyahSliderSync();
-    updateAyahSliderValue(ayah);
-    jumpToAyah(ayah, "auto");
+  els.ayahJumpForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    commitAyahJump();
+    els.ayahJumpInput.blur();
   });
-  els.ayahSlider.addEventListener("change", () => {
-    const ayah = getSliderAyahValue();
-    releaseAyahSliderSync();
-    updateAyahSliderValue(ayah);
-    jumpToAyah(ayah, "auto");
-    saveReadingCheckpointForAyah(ayah);
+  els.ayahJumpInput.addEventListener("focus", () => {
+    state.ayahJumpEditing = true;
+    els.ayahJumpInput.select();
+  });
+  els.ayahJumpInput.addEventListener("input", () => {
+    state.ayahJumpEditing = true;
+    cleanAyahJumpInput();
+  });
+  els.ayahJumpInput.addEventListener("blur", () => {
+    commitAyahJump();
   });
   els.closeNote.addEventListener("click", closeFootnote);
   els.noteDialog.addEventListener("click", (event) => {
@@ -1202,7 +1222,7 @@ function bindEvents() {
   });
   window.addEventListener("scroll", () => {
     scheduleCheckpointSave();
-    scheduleAyahSliderSync();
+    scheduleAyahJumpSync();
   }, { passive: true });
   window.addEventListener("beforeunload", saveReadingCheckpointFromViewport);
   document.addEventListener("visibilitychange", () => {
