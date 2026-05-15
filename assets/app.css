@@ -385,7 +385,7 @@ button {
   text-align: center;
 }
 
-.verse-image,
+.arabic-card,
 .translation-card {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -393,20 +393,50 @@ button {
   box-shadow: 0 10px 30px rgba(30, 34, 31, 0.08);
 }
 
-.verse-image {
-  margin: 0;
-  padding: 10px;
-  overflow: auto hidden;
+.arabic-card {
+  padding: 18px 16px;
+  background: linear-gradient(180deg, #fffdf8, #f8f7f0);
 }
 
-.verse-image img {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  min-width: 260px;
-  margin-left: auto;
-  object-fit: contain;
+.arabic-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px 10px;
+  margin: 0;
+  color: var(--green-deep);
+  font-family: "Scheherazade New", "Amiri", "Noto Naskh Arabic", "Geeza Pro", serif;
+  font-size: 2rem;
+  line-height: 2.15;
+  text-align: right;
+}
+
+.arabic-ayah {
+  display: inline;
+}
+
+.arabic-text {
+  white-space: normal;
+}
+
+.ayah-marker {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-inline-start: 4px;
+  border: 1px solid rgba(197, 138, 47, 0.52);
+  border-radius: 999px;
+  color: var(--garnet);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.86rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.bismillah-card .arabic-line {
+  justify-content: center;
+  color: var(--garnet);
 }
 
 .translation-card {
@@ -560,6 +590,14 @@ button {
   .history-panel p,
   .translation-text {
     font-size: 1.18rem;
+  }
+
+  .arabic-card {
+    padding: 22px 24px;
+  }
+
+  .arabic-line {
+    font-size: 2.6rem;
   }
 
   .surah-heading h1 {

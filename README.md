@@ -21,5 +21,13 @@ Start with a responsive web app or PWA, not a native iOS app. The current source
 - Surah library for all 114 source pages.
 - On-demand parsing of legacy surah HTML.
 - Separate history/introduction and reading views.
-- Responsive Arabic image rendering.
+- Bundled Uthmani Arabic text imported from the public Quran.com API v4 `quran/verses/uthmani` endpoint.
 - Footnote references converted into tappable modal notes.
+
+## Import Arabic text
+
+```sh
+node scripts/import-quran-uthmani.js
+```
+
+This refreshes `assets/data/quran-uthmani.json` and validates that all 6,236 verses were imported.

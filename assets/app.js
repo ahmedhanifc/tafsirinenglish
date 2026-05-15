@@ -115,6 +115,9 @@ const SURAHS = [
   { id: 114, title: "An Nas (Mankind)" },
 ];
 
+const BISMILLAH_TEXT = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ";
+const ARABIC_DIGITS = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+
 const els = {
   homeView: document.querySelector("#homeView"),
   readerView: document.querySelector("#readerView"),
@@ -142,6 +145,8 @@ const state = {
   cache: new Map(),
   currentSurah: null,
   currentTab: "read",
+  quranText: null,
+  quranTextPromise: null,
   loadToken: 0,
   toastTimer: null,
 };
@@ -312,18 +317,47 @@ async function loadSurah(id) {
     return state.cache.get(id);
   }
 
-  const response = await fetch(`Quran/${id}/index.html`);
+  const [response, quranText] = await Promise.all([
+    fetch(`Quran/${id}/index.html`),
+    loadQuranText(),
+  ]);
+
   if (!response.ok) {
     throw new Error(`Could not load Quran/${id}/index.html.`);
   }
 
   const html = await response.text();
-  const parsed = parseLegacyPage(html, id);
+  const parsed = parseLegacyPage(html, id, quranText);
   state.cache.set(id, parsed);
   return parsed;
 }
 
-function parseLegacyPage(html, id) {
+async function loadQuranText() {
+  if (state.quranText) {
+    return state.quranText;
+  }
+
+  if (!state.quranTextPromise) {
+    state.quranTextPromise = fetch("assets/data/quran-uthmani.json")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not load bundled Quran text.");
+        }
+        return response.json();
+      })
+      .then((payload) => {
+        if (!payload?.chapters || payload.verse_count !== 6236) {
+          throw new Error("Bundled Quran text is incomplete.");
+        }
+        state.quranText = payload;
+        return payload;
+      });
+  }
+
+  return state.quranTextPromise;
+}
+
+function parseLegacyPage(html, id, quranText) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
   doc.querySelectorAll("script, style").forEach((node) => node.remove());
@@ -338,7 +372,8 @@ function parseLegacyPage(html, id) {
   const introSlice = bodyChildren.slice(introStart, contentStart);
   const readingSlice = bodyChildren.slice(contentStart, stopIndex);
   const introHtml = introSlice.map((node) => convertIntroNode(node, id)).filter(Boolean);
-  const readingItems = readingSlice.flatMap((node) => convertReadingNode(node, id));
+  const chapterVerses = quranText.chapters[String(id)] || [];
+  const readingItems = readingSlice.flatMap((node) => convertReadingNode(node, id, chapterVerses));
 
   return {
     id,
@@ -427,7 +462,7 @@ function convertIntroNode(node, surahId) {
   return "";
 }
 
-function convertReadingNode(node, surahId) {
+function convertReadingNode(node, surahId, chapterVerses) {
   const tag = node.tagName?.toUpperCase();
   if (!tag || tag === "SCRIPT" || tag === "STYLE") {
     return [];
@@ -435,24 +470,22 @@ function convertReadingNode(node, surahId) {
 
   const items = [];
   const clone = cleanLegacyClone(node, surahId, true);
-  const images = Array.from(clone.querySelectorAll("img"));
-
-  images.forEach((img) => {
-    const src = img.getAttribute("src");
-    if (!src) {
-      return;
-    }
-    const width = img.getAttribute("width") || "";
-    const height = img.getAttribute("height") || "";
-    items.push({
-      type: "image",
-      html: `<figure class="verse-image"><img src="${escapeHtml(src)}" alt="Arabic text image"${width ? ` width="${escapeHtml(width)}"` : ""}${height ? ` height="${escapeHtml(height)}"` : ""} loading="lazy" decoding="async"></figure>`,
-    });
-  });
-
   clone.querySelectorAll("img").forEach((img) => img.remove());
+
   const text = cleanText(clone.textContent);
   if (text) {
+    const range = getTranslationVerseRange(text);
+    const arabicHtml = range
+      ? renderArabicRange(chapterVerses, range.start, range.end)
+      : renderStandaloneBismillah(text, surahId);
+
+    if (arabicHtml) {
+      items.push({
+        type: "arabic",
+        html: arabicHtml,
+      });
+    }
+
     items.push({
       type: "translation",
       html: `<article class="translation-card"><p class="translation-text">${clone.innerHTML.trim()}</p></article>`,
@@ -460,6 +493,71 @@ function convertReadingNode(node, surahId) {
   }
 
   return items;
+}
+
+function getTranslationVerseRange(text) {
+  const match = text.match(/^\[(\d+)(?:\s*[-–]\s*(\d+))?\]/);
+  if (!match) {
+    return null;
+  }
+
+  const start = Number(match[1]);
+  const end = Number(match[2] || match[1]);
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
+    return null;
+  }
+
+  return { start, end };
+}
+
+function renderStandaloneBismillah(text, surahId) {
+  if (surahId === 1 || surahId === 9 || !/^In the name of Allah, the Compassionate, the Merciful\.?$/i.test(text)) {
+    return "";
+  }
+
+  return `
+    <section class="arabic-card bismillah-card" dir="rtl" lang="ar" aria-label="Bismillah">
+      <p class="arabic-line">${escapeHtml(BISMILLAH_TEXT)}</p>
+    </section>
+  `;
+}
+
+function renderArabicRange(chapterVerses, start, end) {
+  const verses = [];
+
+  for (let verseNumber = start; verseNumber <= end; verseNumber += 1) {
+    const verse = chapterVerses[verseNumber - 1];
+    if (!verse?.text) {
+      continue;
+    }
+
+    verses.push({
+      number: verseNumber,
+      text: verse.text,
+    });
+  }
+
+  if (!verses.length) {
+    return "";
+  }
+
+  const rangeLabel = start === end ? `Ayah ${start}` : `Ayahs ${start} to ${end}`;
+  const lines = verses.map((verse) => `
+    <span class="arabic-ayah">
+      <span class="arabic-text">${escapeHtml(verse.text)}</span>
+      <span class="ayah-marker" aria-label="Ayah ${verse.number}">${toArabicIndic(verse.number)}</span>
+    </span>
+  `).join("");
+
+  return `
+    <section class="arabic-card" dir="rtl" lang="ar" aria-label="${rangeLabel}">
+      <p class="arabic-line">${lines}</p>
+    </section>
+  `;
+}
+
+function toArabicIndic(number) {
+  return String(number).replace(/\d/g, (digit) => ARABIC_DIGITS[Number(digit)]);
 }
 
 function cleanLegacyClone(node, surahId, withNotes = false) {
@@ -474,7 +572,7 @@ function cleanLegacyClone(node, surahId, withNotes = false) {
       return;
     }
     img.setAttribute("src", resolved);
-    img.setAttribute("alt", "Arabic text image");
+    img.setAttribute("alt", "Legacy page image");
     img.setAttribute("loading", "lazy");
     img.setAttribute("decoding", "async");
   });
@@ -550,9 +648,9 @@ function renderSurah(data, tab) {
   setTabs(tab);
   els.surahKicker.textContent = `Surah ${data.id}`;
   els.surahTitle.textContent = data.title;
-  const imageCount = data.readingItems.filter((item) => item.type === "image").length;
+  const arabicCount = data.readingItems.filter((item) => item.type === "arabic").length;
   const translationCount = data.readingItems.filter((item) => item.type === "translation").length;
-  els.surahSummary.textContent = `${data.introHtml.length} introduction blocks, ${imageCount} Arabic images, ${translationCount} translation passages, ${Object.keys(data.footnotes).length} notes.`;
+  els.surahSummary.textContent = `${data.introHtml.length} introduction blocks, ${arabicCount} Arabic text groups, ${translationCount} translation passages, ${Object.keys(data.footnotes).length} notes.`;
   els.historyPanel.innerHTML = data.introHtml.length
     ? data.introHtml.join("")
     : `<p class="reader-message">No separate history section was found in this legacy page.</p>`;
