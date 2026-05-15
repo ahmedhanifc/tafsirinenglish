@@ -111,12 +111,16 @@ button {
 .text-button,
 .icon-text-button,
 .close-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 42px;
   padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   color: var(--ink);
+  text-decoration: none;
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
@@ -201,6 +205,35 @@ button:disabled {
   margin: 18px 0 0;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1.1rem;
+}
+
+.source-note {
+  display: grid;
+  gap: 8px;
+  max-width: 660px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(18, 98, 79, 0.2);
+}
+
+.source-note h2 {
+  margin: 0;
+  color: var(--green-deep);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.source-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.source-note a {
+  color: var(--green-deep);
+  font-weight: 700;
 }
 
 .library-panel {
