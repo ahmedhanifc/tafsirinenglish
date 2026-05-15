@@ -117,10 +117,13 @@ const SURAHS = [
 
 const BISMILLAH_TEXT = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ";
 const ARABIC_DIGITS = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+const CHECKPOINT_KEY = "tafhim-reader-checkpoint-v1";
 
 const els = {
   homeView: document.querySelector("#homeView"),
   readerView: document.querySelector("#readerView"),
+  continuePanel: document.querySelector("#continuePanel"),
+  continueMeta: document.querySelector("#continueMeta"),
   search: document.querySelector("#surahSearch"),
   surahList: document.querySelector("#surahList"),
   surahCount: document.querySelector("#surahCount"),
@@ -149,6 +152,10 @@ const state = {
   quranTextPromise: null,
   loadToken: 0,
   toastTimer: null,
+  checkpoint: null,
+  checkpointSaveTimer: null,
+  restoreCheckpointOnNextRender: false,
+  hasRouted: false,
 };
 
 function splitTitle(title) {
@@ -226,6 +233,184 @@ function parseHash() {
   return { view: "home" };
 }
 
+function normalizeCheckpoint(value) {
+  const surahId = Number(value?.surahId);
+  if (!Number.isInteger(surahId) || surahId < 1 || surahId > 114) {
+    return null;
+  }
+
+  const rawAyahStart = Number(value?.ayahStart);
+  const hasAyahStart = Number.isInteger(rawAyahStart) && rawAyahStart > 0;
+  const rawAyahEnd = Number(value?.ayahEnd);
+  const hasAyahEnd = Number.isInteger(rawAyahEnd) && rawAyahEnd >= rawAyahStart;
+  const scrollY = Number(value?.scrollY);
+  const updatedAt = Number(value?.updatedAt);
+
+  return {
+    surahId,
+    ayahStart: hasAyahStart ? rawAyahStart : null,
+    ayahEnd: hasAyahStart ? (hasAyahEnd ? rawAyahEnd : rawAyahStart) : null,
+    scrollY: Number.isFinite(scrollY) && scrollY >= 0 ? Math.round(scrollY) : 0,
+    updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now(),
+  };
+}
+
+function readStoredCheckpoint() {
+  try {
+    return normalizeCheckpoint(JSON.parse(window.localStorage.getItem(CHECKPOINT_KEY) || "null"));
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeStoredCheckpoint(value) {
+  const checkpoint = normalizeCheckpoint(value);
+  if (!checkpoint) {
+    return null;
+  }
+
+  try {
+    window.localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(checkpoint));
+  } catch (error) {
+    return null;
+  }
+
+  state.checkpoint = checkpoint;
+  renderContinueCheckpoint();
+  return checkpoint;
+}
+
+function formatCheckpointLocation(checkpoint) {
+  if (!checkpoint?.ayahStart) {
+    return "Reading";
+  }
+
+  if (checkpoint.ayahStart === checkpoint.ayahEnd) {
+    return `Ayah ${checkpoint.ayahStart}`;
+  }
+
+  return `Ayahs ${checkpoint.ayahStart}-${checkpoint.ayahEnd}`;
+}
+
+function renderContinueCheckpoint() {
+  if (!els.continuePanel || !els.continueMeta) {
+    return;
+  }
+
+  const checkpoint = state.checkpoint || readStoredCheckpoint();
+  state.checkpoint = checkpoint;
+
+  if (!checkpoint) {
+    els.continuePanel.hidden = true;
+    return;
+  }
+
+  const title = SURAHS[checkpoint.surahId - 1]?.title || `Surah ${checkpoint.surahId}`;
+  els.continueMeta.textContent = `${title} - ${formatCheckpointLocation(checkpoint)}`;
+  els.continuePanel.hidden = false;
+}
+
+function getReadingAnchorOffset() {
+  const topbarHeight = document.querySelector(".topbar")?.offsetHeight || 0;
+  const tabsHeight = document.querySelector(".segment-tabs")?.offsetHeight || 0;
+  return topbarHeight + tabsHeight + 18;
+}
+
+function getActiveReadingCard() {
+  const cards = Array.from(els.readPanel.querySelectorAll("[data-checkpoint-item]"));
+  if (!cards.length) {
+    return null;
+  }
+
+  const anchorY = getReadingAnchorOffset();
+  let active = cards[0];
+
+  for (const card of cards) {
+    const rect = card.getBoundingClientRect();
+    if (rect.top <= anchorY) {
+      active = card;
+    }
+    if (rect.bottom >= anchorY) {
+      break;
+    }
+  }
+
+  return active;
+}
+
+function saveReadingCheckpointFromViewport() {
+  if (!state.currentSurah || state.currentTab !== "read" || els.readerView.hidden || els.readPanel.hidden) {
+    return null;
+  }
+
+  const card = getActiveReadingCard();
+  const ayahStart = Number(card?.dataset.ayahStart);
+  const ayahEnd = Number(card?.dataset.ayahEnd || ayahStart);
+
+  return writeStoredCheckpoint({
+    surahId: state.currentSurah.id,
+    ayahStart: Number.isInteger(ayahStart) && ayahStart > 0 ? ayahStart : null,
+    ayahEnd: Number.isInteger(ayahEnd) && ayahEnd >= ayahStart ? ayahEnd : null,
+    scrollY: window.scrollY,
+    updatedAt: Date.now(),
+  });
+}
+
+function scheduleCheckpointSave() {
+  if (state.checkpointSaveTimer) {
+    return;
+  }
+
+  state.checkpointSaveTimer = window.setTimeout(() => {
+    state.checkpointSaveTimer = null;
+    saveReadingCheckpointFromViewport();
+  }, 350);
+}
+
+function getCheckpointTarget(checkpoint) {
+  if (!checkpoint?.ayahStart) {
+    return null;
+  }
+
+  return els.readPanel.querySelector(`[data-checkpoint-item][data-ayah-start="${checkpoint.ayahStart}"]`);
+}
+
+function restoreCheckpointPosition(checkpoint) {
+  window.requestAnimationFrame(() => {
+    const target = getCheckpointTarget(checkpoint);
+
+    if (target) {
+      const top = Math.max(0, window.scrollY + target.getBoundingClientRect().top - getReadingAnchorOffset());
+      window.scrollTo({ top, behavior: "auto" });
+    } else if (Number.isFinite(checkpoint?.scrollY)) {
+      window.scrollTo({ top: checkpoint.scrollY, behavior: "auto" });
+    }
+
+    window.setTimeout(saveReadingCheckpointFromViewport, 0);
+  });
+}
+
+function continueReading() {
+  const checkpoint = readStoredCheckpoint();
+  if (!checkpoint) {
+    renderContinueCheckpoint();
+    showToast("No reading checkpoint has been saved yet.");
+    return;
+  }
+
+  state.checkpoint = checkpoint;
+  state.restoreCheckpointOnNextRender = true;
+  const routeState = parseHash();
+
+  if (routeState.view === "surah" && routeState.id === checkpoint.surahId && routeState.tab === "read") {
+    state.restoreCheckpointOnNextRender = false;
+    restoreCheckpointPosition(checkpoint);
+    return;
+  }
+
+  goToSurah(checkpoint.surahId, "read");
+}
+
 function goHome() {
   window.location.hash = "#/";
 }
@@ -269,22 +454,29 @@ function renderMessage(container, message) {
 }
 
 async function route() {
+  saveReadingCheckpointFromViewport();
   const routeState = parseHash();
+  const isInitialRoute = !state.hasRouted;
+  state.hasRouted = true;
 
   if (routeState.view === "home") {
     state.currentSurah = null;
     els.homeView.hidden = false;
     els.readerView.hidden = true;
     document.title = "Tafhim al-Qur'an Reader";
+    renderContinueCheckpoint();
     return;
   }
 
-  await showSurah(routeState.id, routeState.tab);
+  await showSurah(routeState.id, routeState.tab, { restoreCheckpoint: isInitialRoute });
 }
 
-async function showSurah(id, tab) {
+async function showSurah(id, tab, options = {}) {
   const token = ++state.loadToken;
   state.currentTab = tab;
+  if (options.restoreCheckpoint) {
+    state.restoreCheckpointOnNextRender = true;
+  }
   els.homeView.hidden = true;
   els.readerView.hidden = false;
   setTabs(tab);
@@ -496,9 +688,13 @@ function convertReadingNode(node, surahId, chapterVerses) {
       });
     }
 
+    const checkpointAttrs = range
+      ? ` id="surah-${surahId}-ayah-${range.start}" data-checkpoint-item data-ayah-start="${range.start}" data-ayah-end="${range.end}"`
+      : "";
+
     items.push({
       type: "translation",
-      html: `<article class="translation-card"><p class="translation-text">${clone.innerHTML.trim()}</p></article>`,
+      html: `<article class="translation-card"${checkpointAttrs}><p class="translation-text">${clone.innerHTML.trim()}</p></article>`,
     });
   }
 
@@ -674,7 +870,23 @@ function renderSurah(data, tab) {
     : `<p class="reader-message">No reading content was found in this legacy page.</p>`;
   updateVisiblePanel(tab);
   updateNavButtons(data.id);
-  window.scrollTo({ top: 0, behavior: "auto" });
+
+  const checkpoint = state.checkpoint || readStoredCheckpoint();
+  const shouldRestoreCheckpoint = state.restoreCheckpointOnNextRender
+    && tab === "read"
+    && checkpoint?.surahId === data.id;
+  state.restoreCheckpointOnNextRender = false;
+
+  if (shouldRestoreCheckpoint) {
+    restoreCheckpointPosition(checkpoint);
+  } else {
+    window.scrollTo({ top: 0, behavior: "auto" });
+    if (tab === "read") {
+      window.requestAnimationFrame(saveReadingCheckpointFromViewport);
+    }
+  }
+
+  renderContinueCheckpoint();
 }
 
 function setTabs(tab) {
@@ -742,6 +954,12 @@ function bindEvents() {
       return;
     }
 
+    const continueButton = event.target.closest("[data-continue-reading]");
+    if (continueButton) {
+      continueReading();
+      return;
+    }
+
     const openButton = event.target.closest("[data-open-surah]");
     if (openButton) {
       goToSurah(Number(openButton.dataset.openSurah), openButton.dataset.openTab || "read");
@@ -777,11 +995,20 @@ function bindEvents() {
       closeFootnote();
     }
   });
+  window.addEventListener("scroll", scheduleCheckpointSave, { passive: true });
+  window.addEventListener("beforeunload", saveReadingCheckpointFromViewport);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      saveReadingCheckpointFromViewport();
+    }
+  });
   window.addEventListener("hashchange", route);
 }
 
 function init() {
+  state.checkpoint = readStoredCheckpoint();
   bindEvents();
+  renderContinueCheckpoint();
   renderSurahList();
 
   if (window.location.protocol === "file:") {
