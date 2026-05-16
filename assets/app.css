@@ -482,6 +482,33 @@ button:disabled {
   color: #ffffff;
 }
 
+.reader-options {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+.source-image-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid rgba(18, 98, 79, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.source-image-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--green-deep);
+}
+
 .history-panel,
 .read-panel {
   display: grid;
@@ -578,10 +605,15 @@ body.has-ayah-jump #app {
 }
 
 .source-image-card {
+  display: none;
   border: 1px solid rgba(197, 138, 47, 0.34);
   border-radius: 8px;
   background: #fffdf8;
   box-shadow: var(--shadow-soft);
+}
+
+body.show-source-images .source-image-card {
+  display: block;
 }
 
 .source-image-card summary {

@@ -38,7 +38,7 @@
         </section>
         <section class="source-note" aria-labelledby="sourceHeading">
           <h2 id="sourceHeading">Source &amp; attribution</h2>
-          <p>This is an independent reading interface for Tafhim al-Qur'an content from <a href="https://www.englishtafsir.com/" target="_blank" rel="noreferrer">EnglishTafsir.com</a>. Tafsir, translation, introductions, footnotes, and original Arabic images are preserved from that source. Rendered Arabic Quran text is bundled separately from Quran.com Uthmani data.</p>
+          <p>This is an independent reading interface for Tafhim al-Qur'an content from <a href="https://www.englishtafsir.com/" target="_blank" rel="noreferrer">EnglishTafsir.com</a>. Tafsir, translation, introductions, footnotes, and original Arabic images are preserved from that source. The original images are available as an optional source reference; rendered Arabic Quran text is bundled separately from Quran.com Uthmani data.</p>
         </section>
       </div>
 
@@ -72,6 +72,13 @@
         <div class="segment-tabs" role="tablist" aria-label="Reader sections">
           <button type="button" role="tab" data-tab="history" id="historyTab">History</button>
           <button type="button" role="tab" data-tab="read" id="readTab">Reading</button>
+        </div>
+
+        <div class="reader-options" id="readerOptions" hidden>
+          <label class="source-image-toggle">
+            <input type="checkbox" id="sourceImageToggle">
+            <span>Original Arabic images</span>
+          </label>
         </div>
 
         <section class="history-panel" id="historyPanel" aria-labelledby="historyTab"></section>

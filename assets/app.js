@@ -118,6 +118,7 @@ const SURAHS = [
 const BISMILLAH_TEXT = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ";
 const ARABIC_DIGITS = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
 const CHECKPOINT_KEY = "tafhim-reader-checkpoint-v1";
+const SOURCE_IMAGE_SETTING_KEY = "tafhim-reader-source-images-v1";
 const LEGACY_PAGE_ROOT = "Quran";
 const ORIGINAL_SOURCE_ROOT = "original/Quran";
 
@@ -136,6 +137,8 @@ const els = {
   readPanel: document.querySelector("#readPanel"),
   historyTab: document.querySelector("#historyTab"),
   readTab: document.querySelector("#readTab"),
+  readerOptions: document.querySelector("#readerOptions"),
+  sourceImageToggle: document.querySelector("#sourceImageToggle"),
   ayahJumpDock: document.querySelector("#ayahJumpDock"),
   ayahJumpForm: document.querySelector("#ayahJumpForm"),
   ayahJumpInput: document.querySelector("#ayahJumpInput"),
@@ -159,6 +162,7 @@ const state = {
   loadToken: 0,
   toastTimer: null,
   checkpoint: null,
+  showSourceImages: false,
   checkpointSaveTimer: null,
   ayahJumpSyncFrame: null,
   ayahJumpEditing: false,
@@ -316,6 +320,31 @@ function renderContinueCheckpoint() {
   const title = SURAHS[checkpoint.surahId - 1]?.title || `Surah ${checkpoint.surahId}`;
   els.continueMeta.textContent = `${title} - ${formatCheckpointLocation(checkpoint)}`;
   els.continuePanel.hidden = false;
+}
+
+function readStoredSourceImageSetting() {
+  try {
+    return window.localStorage.getItem(SOURCE_IMAGE_SETTING_KEY) === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function setSourceImagesVisible(visible, persist = false) {
+  state.showSourceImages = Boolean(visible);
+  document.body.classList.toggle("show-source-images", state.showSourceImages);
+
+  if (els.sourceImageToggle) {
+    els.sourceImageToggle.checked = state.showSourceImages;
+  }
+
+  if (persist) {
+    try {
+      window.localStorage.setItem(SOURCE_IMAGE_SETTING_KEY, state.showSourceImages ? "1" : "0");
+    } catch (error) {
+      return;
+    }
+  }
 }
 
 function getReadingAnchorOffset() {
@@ -1173,6 +1202,9 @@ function setTabs(tab) {
 function updateVisiblePanel(tab) {
   els.historyPanel.hidden = tab !== "history";
   els.readPanel.hidden = tab !== "read";
+  if (els.readerOptions) {
+    els.readerOptions.hidden = tab !== "read";
+  }
   updateAyahJumpVisibility();
 }
 
@@ -1256,6 +1288,9 @@ function bindEvents() {
   });
 
   els.search.addEventListener("input", renderSurahList);
+  els.sourceImageToggle.addEventListener("change", () => {
+    setSourceImagesVisible(els.sourceImageToggle.checked, true);
+  });
   els.prevSurah.addEventListener("click", () => {
     if (state.currentSurah?.id > 1) {
       goToSurah(state.currentSurah.id - 1, state.currentTab);
@@ -1303,6 +1338,7 @@ function bindEvents() {
 
 function init() {
   state.checkpoint = readStoredCheckpoint();
+  setSourceImagesVisible(readStoredSourceImageSetting());
   bindEvents();
   renderContinueCheckpoint();
   renderSurahList();
